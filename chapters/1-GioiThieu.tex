@@ -1,0 +1,17 @@
+\section{Giới thiệu đề tài.}
+
+\subsection{Động cơ nghiên cứu}
+
+Trong những năm gần đây, kiến trúc microservices và nền tảng container hóa đã trở thành xu hướng chủ đạo trong việc triển khai các hệ thống phân tán hiện đại. Kubernetes hiện là nền tảng orchestration phổ biến nhất, được sử dụng rộng rãi để quản lý container, tự động triển khai, mở rộng và vận hành hệ thống dịch vụ quy mô lớn. Một trong những đặc điểm quan trọng của Kubernetes là khả năng \textit{self-healing} (tự phục hồi), cho phép hệ thống tự động khởi động lại Pod lỗi, thay thế Pod bị crash hoặc điều phối workload sang Node khác khi xảy ra sự cố.
+
+Tuy nhiên, cơ chế tự phục hồi mặc định của Kubernetes chủ yếu hoạt động dựa trên các rule cố định và các controller truyền thống. Trong các môi trường thực tế có tải động, số lượng dịch vụ lớn và lỗi xảy ra liên tục, các cơ chế này vẫn tồn tại nhiều hạn chế như:
+\begin{itemize}
+    \item Thời gian phục hồi chưa tối ưu.
+    \item Không thích nghi tốt với nhiều loại lỗi đồng thời.
+    \item Thiếu khả năng học hỏi từ dữ liệu lịch sử.
+    \item Không tối ưu tài nguyên trong quá trình phục hồi.
+\end{itemize}
+
+Trong khi đó, Reinforcement Learning (RL) là một nhánh của Machine Learning cho phép tác nhân (agent) học cách ra quyết định tối ưu thông qua quá trình tương tác với môi trường. RL đã được ứng dụng trong nhiều bài toán tối ưu động như robot, mạng máy tính, quản lý tài nguyên cloud và tối ưu scheduling. Khả năng học chính sách tối ưu dựa trên trạng thái hệ thống giúp RL trở thành hướng tiếp cận tiềm năng cho bài toán self-healing trong Kubernetes.
+
+Từ đó, đề tài “Ứng dụng Reinforcement Learning cho bài toán tự phục hồi hệ thống Kubernetes trong các kịch bản Pod failure và Node failure” được thực hiện nhằm nghiên cứu khả năng áp dụng RL để hỗ trợ ra quyết định phục hồi hệ thống hiệu quả hơn so với cơ chế mặc định.

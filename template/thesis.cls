@@ -87,6 +87,7 @@
 
 \RequirePackage{setspace}
 \renewcommand{\baselinestretch}{1.5}
+\setlength{\parindent}{0pt}
 
 \titleformat{\chapter}[hang]
 {\large\bfseries}{\cftchappresnum\thechapter.}{0.5 em}{\centering\MakeUppercase}
@@ -108,10 +109,7 @@
 }
 
 
-\RequirePackage{acro,tabularray}
-\acsetup{
-    list/template=tabularray
-}
+\RequirePackage{acro}
 \input{abbrev}
 
 \RequirePackage[maxcitenames=2, mincitenames=1, backend=biber,
@@ -244,7 +242,7 @@ sorting=none, bibencoding=utf8, natbib=true, maxbibnames=99]{biblatex}
         {\textcolor{red}{\textbf{\@Title[en]}}\par}
         \vspace*{7.5ex}
         
-        {\textbf{{\@Degree} NGÀNH {\@Major}}\par}
+        {\textbf{{\@Degree} {\@Major}}\par}
         {\@ifundefined{@MajorCode}{\empty} {MÃ NGÀNH: {\@MajorCode \par}}}
         \vspace*{6ex}
     	\vfill
@@ -277,7 +275,7 @@ sorting=none, bibencoding=utf8, natbib=true, maxbibnames=99]{biblatex}
         {\textcolor{red}{\textbf{\@Title[en]}}\par}
         \vspace*{7.5ex}
         
-        {\textbf{{\@Degree} NGÀNH {\@Major}}\par}
+        {\textbf{{\@Degree} {\@Major}}\par}
         \vspace*{6ex}
         \textbf{GIẢNG VIÊN HƯỚNG DẪN}\par
     	{\textbf{\@Supervisor}\par\vspace*{15mm}} 

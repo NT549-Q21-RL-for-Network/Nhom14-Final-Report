@@ -1,33 +1,47 @@
 % Define metadata
 \documentclass{template/thesis}
-\Title{TÊN ĐỀ TÀI BẰNG TIẾNG VIỆT}
-\Title[en]{TÊN ĐỀ TÀI BẰNG TIẾNG ANH}
+\Title{ĐỀ TÀI: CẢI THIỆN KHẢ NĂNG TỰ PHỤC HỒI CHO HỆ THỐNG KUBERNETES SỬ DỤNG HỌC TĂNG CƯỜNG}
+\Title[en]{TOPIC: IMPROVING SELF-HEALING CAPABILITY FOR KUBERNETES SYSTEMS USING REINFORCEMENT LEARNING}
 
-\ThesisType{KHOÁ LUẬN TỐT NGHIỆP}
+\ThesisType{BÁO CÁO ĐỒ ÁN MÔN HỌC}
 
 \University{ĐẠI HỌC QUỐC GIA THÀNH PHỐ HỒ CHÍ MINH}
 \CollegeOrDept{{TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN}}
 \Faculty{KHOA MẠNG MÁY TÍNH VÀ TRUYỀN THÔNG}
 
 
-\Author{NGUYỄN VĂN A}{20520000}
-\Author{TRẦN VĂN B}{20520000}
+\Author{NGUYỄN TIẾN PHÁT}{23521147}
+\Author{LÊ TRUNG KIÊN}{23520797}
+\Author{HUỲNH LÂM TUẤN PHONG}{23521162}
 
-\Degree{KỸ SƯ}
-\Major{AN TOÀN THÔNG TIN}
+\Degree{Môn học:}
+\Major{NT549 - Học máy tăng cường cho các hệ thống mạng}
 % \MajorCode{123}
-\ThesisYear{2024}
+\ThesisYear{2026}
 \ThesisLocation{TP. HỒ CHÍ MINH}
 
-\Supervisor{TS. Hoàng Văn A}
-\Supervisor{TS. Hoàng Văn B}
+\Supervisor{TS. Huỳnh Văn Đặng}
 
 \hypersetup{
 	pdfencoding=auto,
-	pdfauthor={Tên tác giả},
-	pdfsubject={Chủ đề đề tài},
-	pdftitle={Tên tiêu đề đề tài},
+	pdfauthor={Nhóm 14},
+	pdfsubject={Môn học: NT549 - Học máy tăng cường cho các hệ thống mạng; Ngành: Mạng máy tính và truyền thông dữ liệu},
+	pdftitle={Cải thiện khả năng tự phục hồi cho hệ thống Kubernetes sử dụng học tăng cường},
 	pdfkeywords={}
+}
+
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  backgroundcolor=\color{gray!5},
+  frame=single,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray!60!black},
+  stringstyle=\color{orange!80!black},
+  numbers=none,
+  tabsize=2,
+  showstringspaces=false
 }
 
 \begin{document}
@@ -35,33 +49,34 @@
 \secondbeforepreface
 \afterpreface
 
-\chapter{Mở đầu}
+\chapter{Giới thiệu}
 \label{c:intro}
-\input{chapters/1-MoDau}
+\input{chapters/1-GioiThieu}
 
-\chapter{Cơ sở lý thuyết}
+\chapter{Tổng quan lý thuyết, nghiên cứu liên quan}
 \label{c:cosolythuyet}
-\input{chapters/2-CoSoLyThuyet}
+\input{chapters/2-TongQuanLyThuyetNghienCuuLienQuan}
 
 
-\chapter{Phương pháp thực hiện}
-\label{c:phuongphapthuchien}
-\input{chapters/3-PhuongPhapThucHien}
+\chapter{Mô hình bài toán}
+\label{c:mohinhbaitoan}
+\input{chapters/3-MoHinhBaiToan}
 
-\chapter{Thực nghiệm, đánh giá và thảo luận}
-\label{c:thucnghiemdanhgia}
-\input{chapters/4-ThucNghiemDanhGia}
+\chapter{Phương pháp đề xuất}
+\label{c:phuongphapdexuat}
+\input{chapters/4-PhuongPhapDeXuat}
 
+\chapter{Cài đặt và thực nghiệm}
+\label{c:caidatvathucnghiem}
+\input{chapters/5-CaiDatVaThucNghiem}
+
+\chapter{Kết quả và phân tích}
+\label{c:ketquavaphantich}
+\input{chapters/6-KetQuaVaPhanTich}
 
 \chapter{Kết luận và hướng phát triển}
-\label{c:ketluanvaphattrien}
-\input{chapters/5-KetLuanPhatTrien}
-
-
-\appendix
-\renewcommand{\cftchappresnum}{Phụ lục }
-\addtocontents{toc}{\protect\renewcommand{\protect\cftchappresnum}{Phụ lục }}
-\input{chapters/appendix}
+\label{c:ketluanvahuongphattrien}
+\input{chapters/7-KetLuanVaHuongPhatTrien}
 
 \begingroup
 \setlength{\emergencystretch}{8em}
