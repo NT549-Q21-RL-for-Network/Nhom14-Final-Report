@@ -1,8 +1,293 @@
-Chương này trình bày phương pháp đề xuất cho bài toán, bao gồm thuật toán sử dụng,
-kiến trúc mô hình neural network, hàm mất mát, và quy trình huấn luyện.
+\section{Thiết kế hệ thống bằng UML (Unified Modeling Language)}
 
-% TODO:
-% - Mô tả chi tiết thuật toán đề xuất
-% - Trình bày kiến trúc mô hình
-% - Định nghĩa hàm mất mát và mục tiêu tối ưu
-% - Quy trình huấn luyện và tiêu chí dừng
+\noindent UML được sử dụng để mô tả kiến trúc và luồng xử lý của hệ thống tự phục hồi dựa trên RL theo cách trực quan, nhất quán giữa góc nhìn nghiên cứu và triển khai thực tế. Trong phạm vi đồ án, phần UML tập trung vào ba khía cạnh: chức năng hệ thống, trình tự tương tác khi xảy ra sự cố và cấu trúc triển khai các thành phần thời gian chạy.
+
+\begin{figure}[!htbp]
+\centering
+\footnotesize
+\begin{tikzpicture}[
+    scale=0.90, transform shape,
+    >=stealth,
+    proc/.style={draw=blue!50, fill=blue!8, rounded corners=2mm, align=center, minimum width=9.2cm, minimum height=9mm},
+    act/.style={draw=green!50!black, fill=green!8, rounded corners=2mm, align=center, text width=8cm, minimum height=9mm},
+    noact/.style={draw=red!60, fill=red!6, rounded corners=2mm, align=center, minimum width=5.3cm, minimum height=9mm},
+    dec/.style={draw=orange!70!black, fill=yellow!10, rounded corners=1.8mm, align=center, minimum width=5.8cm, minimum height=10mm},
+    merge/.style={draw=violet!70!black, fill=violet!10, circle, inner sep=1.2pt},
+    line/.style={->, thick}
+]
+
+\node (start) [circle, draw, fill=black, inner sep=1.7pt] {};
+\node (collect) [proc, at={($(start)+(0,-1.15)$)}] {Thu thập số liệu từ Prometheus \& Kubernetes API};
+\node (prep) [proc, at={($(collect)+(0,-1.35)$)}] {Tiền xử lý số liệu (Chuẩn hóa, Lọc nhiễu)};
+\node (state) [proc, at={($(prep)+(0,-1.35)$)}] {Tạo biểu diễn trạng thái $s_t$};
+\node (choose) [dec, at={($(state)+(0,-1.50)$)}] {Tác nhân RL chọn hành động \\ (DQN / PPO)};
+
+\node (act1) [act, at={($(choose)+(-4.25,-1.75)$)}] {Hành động = Khôi phục / Khởi động lại / Mở rộng / Không hành động};
+\node (act2) [act, at={($(act1)+(0,-1.35)$)}] {Gửi hành động tới bộ chấp hành};
+\node (act3) [act, at={($(act2)+(0,-1.35)$)}] {Bộ chấp hành thực thi lệnh an toàn trên Kubernetes};
+
+\node (noaction) [noact, at={($(choose)+(3.35,-1.75)$)}] {Không thực hiện hành động};
+\node (join) [merge, at={($(act3)+(4.25,-1.25)$)}] {};
+
+\node (observe) [proc, at={($(join)+(0,-1.40)$)}] {Quan sát trạng thái kế tiếp $s_{t+1}$ và nhận thưởng $R_t$ \\ (Giảm MTTR, Tuân thủ SLO)};
+\node (update) [proc, anchor=north, at={($(observe.south)+(0,-0.35)$)}] {Cập nhật mô hình RL \\ (DQN: Cập nhật mạng Q, PPO: Cập nhật mạng chính sách)};
+\node (store) [proc, anchor=north, at={($(update.south)+(0,-0.35)$)}] {Lưu chuyển trạng thái $(s_t, a_t, R_t, s_{t+1})$ vào bộ nhớ kinh nghiệm};
+\node (cont) [proc, anchor=north, at={($(store.south)+(0,-0.35)$)}] {Tiếp tục giám sát và thích nghi};
+\node (running) [dec, anchor=north, at={($(cont.south)+(0,-0.35)$)}] {Hệ thống còn hoạt động?};
+\node (end) [circle, draw, fill=black, inner sep=1.7pt, at={($(running)+(0,-1.15)$)}] {};
+
+\draw[line] (start) -- (collect);
+\draw[line] (collect) -- (prep);
+\draw[line] (prep) -- (state);
+\draw[line] (state) -- (choose);
+
+\draw[line] (choose.west) -| (act1.north);
+\draw[line] (choose.east) -| (noaction.north);
+\node[font=\bfseries\color{green!50!black}] at ($(choose.west)+(-2.0,-0.08)$) {Có};
+\node[font=\bfseries\color{red!70!black}] at ($(choose.east)+(1.6,-0.08)$) {Không};
+
+\draw[line] (act1) -- (act2);
+\draw[line] (act2) -- (act3);
+
+\draw[line] (noaction.south) |- (join.east);
+\draw[line] (act3.south) |- (join.west);
+
+\draw[line] (join) -- (observe);
+\draw[line] (observe) -- (update);
+\draw[line] (update) -- (store);
+\draw[line] (store) -- (cont);
+\draw[line] (cont) -- (running);
+\draw[line] (running) -- node[midway, right] {\color{red!70!black}\textbf{Không}} (end);
+\draw[line] (running.west) -| ++(-6.10,0) |- node[pos=0.25, left] {\color{green!50!black}\textbf{Có}} (collect.west);
+
+\end{tikzpicture}
+\caption{Luồng hoạt động cho vòng lặp tự phục hồi dựa trên RL}
+\label{fig:rl-self-healing-activity}
+\end{figure}
+\clearpage
+
+
+\section{Kế thừa MDP từ Chương 3 vào DQN/PPO}
+
+\noindent Chương này không lặp lại định nghĩa MDP. Thay vào đó, nội dung tập trung vào cách \textbf{ánh xạ trực tiếp} các thành phần MDP ở Chương 3 vào quy trình huấn luyện và suy luận của DQN/PPO.
+
+\subsection{Ánh xạ trạng thái sang đầu vào mô hình}
+
+\noindent Vector trạng thái $s_t$ (gồm nhóm \textit{core state}, \textit{derived state} và \textit{extended state} nếu có) được chuẩn hóa theo đúng quy tắc ở Chương 3 trước khi đưa vào mô hình. Với DQN, $s_t$ là đầu vào mạng Q để ước lượng $Q(s_t, a)$. Với PPO, $s_t$ là đầu vào cho cả nhánh \textit{actor} và \textit{critic}.
+
+\subsection{Ánh xạ hành động sang actuator và guardrail}
+
+\noindent Không gian hành động rời rạc $\{\texttt{idle},\ \texttt{restart\_pod},\ \texttt{scale\_up},\ \texttt{scale\_down}\}$ được ánh xạ sang lệnh vận hành trên Kubernetes thông qua lớp actuator. Trước khi thực thi, mỗi hành động phải đi qua guardrail (thời gian chờ giữa hai hành động, giới hạn \textit{min/max replicas}, chế độ chạy thử) để bảo đảm an toàn vận hành.
+
+\subsection{Ánh xạ hàm thưởng sang mục tiêu huấn luyện}
+
+\noindent Hàm thưởng thiết kế ở Chương 3 được dùng nguyên vẹn để sinh tín hiệu học tại mỗi bước. Với DQN, phần thưởng $R_t$ đi vào mục tiêu Bellman và cập nhật mạng Q. Với PPO, $R_t$ được dùng để tính return/advantage, từ đó tối ưu hàm mục tiêu chính sách cắt ngưỡng.
+
+\subsection{Ánh xạ điều kiện kết thúc sang vòng lặp rollout và huấn luyện}
+
+\noindent Ba điều kiện kết thúc (thành công, thất bại, hết thời gian) được dùng làm tín hiệu đóng tập trong cả hai pha: thu thập rollout và huấn luyện theo tập. Nhờ vậy, dữ liệu huấn luyện phản ánh đúng các quỹ đạo phục hồi hợp lệ và giúp so sánh DQN/PPO trên cùng tiêu chí dừng.
+
+\noindent Từ bốn ánh xạ trên, DQN và PPO cùng kế thừa một nền MDP thống nhất; khác biệt chính nằm ở cơ chế cập nhật tham số mô hình, không nằm ở định nghĩa bài toán.
+
+\section{Thuật toán DQN}
+
+\noindent\textbf{Cơ sở lựa chọn thuật toán.}
+
+\noindent Deep Q-Network (DQN) là phương pháp học tăng cường theo giá trị, học hàm $Q(s, a)$ để ước lượng lợi ích kỳ vọng của từng hành động tại mỗi trạng thái. Trong bài toán tự phục hồi Kubernetes, DQN dùng để chọn hành động trong không gian rời rạc gồm \texttt{idle}, \texttt{restart\_pod}, \texttt{scale\_up}, \texttt{scale\_down}.
+
+\noindent Với tập hành động nhỏ và rõ ràng (4 hành động), DQN phù hợp để xây dựng baseline nhanh, dễ theo dõi Q-value và thuận tiện gỡ lỗi chính sách (ưu tiên Double DQN). Chi tiết lý thuyết nền được trình bày ở Chương 2; Chương 4 tập trung vào cách áp dụng cho bài toán đề xuất.
+
+\subsection{Thiết kế phương pháp cho kịch bản sự cố Pod}
+
+\subsubsection{Mục tiêu thiết kế}
+
+\noindent Mục tiêu của DQN trong kịch bản sự cố Pod là học chính sách ra quyết định phục hồi theo trạng thái hệ thống tại từng thời điểm. Chính sách cần cân bằng giữa hai yêu cầu: phản ứng đủ nhanh khi chất lượng dịch vụ suy giảm và hạn chế can thiệp dư thừa khi hệ thống đã ổn định.
+
+\subsubsection{Ánh xạ trạng thái sang đầu vào mạng Q}
+
+\noindent Trạng thái đầu vào kế thừa trực tiếp từ MDP ở Chương 3, gồm các đặc trưng phản ánh lưu lượng, lỗi và độ trễ. Trước khi đưa vào mạng Q, các đặc trưng được chuẩn hóa theo cùng quy tắc tiền xử lý đã định nghĩa ở phần mô hình bài toán, nhằm bảo đảm tính nhất quán giữa pha huấn luyện và pha suy luận.
+
+
+\begin{center}
+\begin{tikzpicture}[
+    >=stealth,
+    font=\small,
+    line/.style={->, thick},
+    box/.style={draw=blue!50, fill=blue!8, rounded corners=2mm, align=center, minimum width=12.4cm, minimum height=8.5mm, inner xsep=3mm}
+]
+\def\vsep{0.48}
+
+\node (raw)   [box] at (0,0) {Số liệu thô từ hệ thống thực\\(CSV, Prometheus, Kubernetes API)};
+\node (prep)  [box, anchor=north] at ($(raw.south)+(0,-\vsep)$) {Tiền xử lý dữ liệu\\(làm sạch, chuẩn hóa, clip)};
+\node (feat)  [box, anchor=north] at ($(prep.south)+(0,-\vsep)$) {Tạo đặc trưng trạng thái\\(core state, derived state, extended state)};
+\node (state) [box, anchor=north] at ($(feat.south)+(0,-\vsep)$) {Ghép vector trạng thái $s_t$};
+\node (qnet)  [box, anchor=north] at ($(state.south)+(0,-\vsep)$) {Đầu vào mạng Q (DQN)};
+\node (qval)  [box, anchor=north] at ($(qnet.south)+(0,-\vsep)$) {Đầu ra giá trị hành động\\$Q(s_t, a_0),\ Q(s_t, a_1),\ Q(s_t, a_2),\ Q(s_t, a_3)$};
+
+\draw[line] (raw) -- (prep);
+\draw[line] (prep) -- (feat);
+\draw[line] (feat) -- (state);
+\draw[line] (state) -- (qnet);
+\draw[line] (qnet) -- (qval);
+
+\end{tikzpicture}
+\captionof{figure}{Luồng ánh xạ trạng thái sang đầu vào mạng Q trong DQN}
+\label{fig:dqn-state-to-q-input}
+\end{center}
+
+\subsubsection{Ánh xạ hành động sang cơ chế can thiệp}
+
+\noindent Đầu ra của DQN là giá trị Q ứng với từng hành động rời rạc trong tập hành động phục hồi. Hành động được chọn sẽ được ánh xạ sang lệnh can thiệp trên Kubernetes thông qua lớp actuator, bảo đảm mỗi quyết định của tác nhân đều có đường đi thực thi rõ ràng từ mức mô hình đến mức hệ thống.
+
+\begin{center}
+\begin{tikzpicture}[
+    >=stealth,
+    font=\small,
+    line/.style={->, thick},
+    box/.style={draw=blue!50, fill=blue!8, rounded corners=2mm, align=center, minimum width=12.0cm, minimum height=8.5mm, inner xsep=3mm},
+    guard/.style={draw=orange!70!black, fill=yellow!10, rounded corners=2mm, align=center, minimum width=12.0cm, minimum height=8.5mm, inner xsep=3mm},
+    act/.style={draw=green!50!black, fill=green!8, rounded corners=2mm, align=center, minimum width=12.0cm, minimum height=8.5mm, inner xsep=3mm}
+]
+\def\vsep{0.42}
+
+\node (qout) [box] at (0,0) {Đầu ra mạng Q: chọn hành động có giá trị Q lớn nhất};
+\node (map) [box, anchor=north] at ($(qout.south)+(0,-\vsep)$) {Ánh xạ hành động rời rạc sang lệnh Kubernetes};
+\node (guard) [guard, anchor=north] at ($(map.south)+(0,-\vsep)$) {Guardrail: cooldown, giới hạn min/max replicas, chế độ chạy thử};
+\node (exec) [act, anchor=north] at ($(guard.south)+(0,-\vsep)$) {Actuator thực thi lệnh an toàn lên cụm Kubernetes};
+\node (fb) [box, anchor=north] at ($(exec.south)+(0,-\vsep)$) {Thu phản hồi hệ thống và ghi log hành động để cập nhật bước tiếp theo};
+
+\draw[line] (qout) -- (map);
+\draw[line] (map) -- (guard);
+\draw[line] (guard) -- (exec);
+\draw[line] (exec) -- (fb);
+\end{tikzpicture}
+\captionof{figure}{Luồng ánh xạ hành động DQN sang cơ chế can thiệp và guardrail}
+\label{fig:dqn-action-to-actuator}
+\end{center}
+
+\subsubsection{Cơ chế học và cập nhật tham số DQN}
+
+\noindent Quá trình học sử dụng cơ chế Bellman để cập nhật giá trị hành động, kết hợp bộ nhớ kinh nghiệm và mạng mục tiêu để tăng ổn định. Chính sách lựa chọn hành động theo chiến lược epsilon-greedy nhằm duy trì cân bằng giữa khám phá và khai thác trong suốt quá trình huấn luyện.
+
+\subsubsection{Ràng buộc an toàn khi thực thi}
+
+\noindent Trước khi thực thi hành động, hệ thống áp dụng lớp guardrail để giảm rủi ro vận hành, bao gồm giới hạn tần suất can thiệp, giới hạn biên scale và chế độ chạy thử. Nhờ đó, chính sách học được vẫn nằm trong miền hành động an toàn khi chuyển sang môi trường runtime.
+
+\subsubsection{Quy trình huấn luyện và đánh giá ở mức phương pháp}
+
+\noindent Quy trình tổng quát gồm các bước: thu thập chuyển trạng thái, cập nhật mạng Q theo mini-batch, cập nhật mạng mục tiêu theo chu kỳ và đánh giá định kỳ để chọn checkpoint. Việc đánh giá tập trung vào chất lượng phục hồi dịch vụ và mức độ ổn định hành vi can thiệp của tác nhân.
+
+\begin{center}
+\begin{tikzpicture}[
+    >=stealth,
+    font=\small,
+    line/.style={->, thick},
+    box/.style={draw=blue!50, fill=blue!8, rounded corners=2mm, align=center, minimum width=8.3cm, minimum height=8.5mm, inner xsep=3mm},
+    eval/.style={draw=violet!60!black, fill=violet!8, rounded corners=2mm, align=center, minimum width=5.8cm, minimum height=8.5mm, inner xsep=3mm}
+]
+\def\vsep{0.40}
+
+\node (collect) [box] at (0,0) {Thu thập chuyển trạng thái $(s_t,a_t,r_t,s_{t+1})$};
+\node (buffer) [box, anchor=north] at ($(collect.south)+(0,-\vsep)$) {Lưu vào bộ nhớ kinh nghiệm (Replay Buffer)};
+\node (sample) [box, anchor=north] at ($(buffer.south)+(0,-\vsep)$) {Lấy mẫu mini-batch và tính mục tiêu Bellman};
+\node (updateq) [box, anchor=north] at ($(sample.south)+(0,-\vsep)$) {Cập nhật mạng Q chính};
+\node (updatet) [box, anchor=north] at ($(updateq.south)+(0,-\vsep)$) {Cập nhật mạng mục tiêu theo chu kỳ};
+\node (next) [box, anchor=north] at ($(updatet.south)+(0,-\vsep)$) {Lặp vòng huấn luyện đến khi đạt ngân sách};
+
+\node (eval) [eval, anchor=west] at ($(updatet.east)+(0.65,0)$) {Đánh giá định kỳ\\(MTTR, SLO, ổn định can thiệp)};
+\node (ckpt) [eval, anchor=north] at ($(eval.south)+(0,-0.38)$) {Chọn checkpoint tốt nhất};
+
+\draw[line] (collect) -- (buffer);
+\draw[line] (buffer) -- (sample);
+\draw[line] (sample) -- (updateq);
+\draw[line] (updateq) -- (updatet);
+\draw[line] (updatet) -- (next);
+\draw[line] (updatet.east) -- (eval.west);
+\draw[line] (eval) -- (ckpt);
+\end{tikzpicture}
+\captionof{figure}{Quy trình huấn luyện và đánh giá DQN ở mức phương pháp}
+\label{fig:dqn-train-eval-pipeline}
+\end{center}
+
+\subsubsection{Kỳ vọng hành vi chính sách}
+
+\noindent Chính sách DQN đạt yêu cầu khi thể hiện được ba đặc tính: phát hiện và phản ứng sớm khi sự cố làm suy giảm dịch vụ, tránh hành động lặp không cần thiết trong pha ổn định, và duy trì chất lượng phục hồi bền vững thay vì chỉ cải thiện ngắn hạn.
+
+\section{Thuật toán PPO}
+
+\noindent\textbf{Cơ sở lựa chọn thuật toán.}
+
+\noindent Proximal Policy Optimization (PPO) là phương pháp \textit{gradient chính sách} hiện đại, tối ưu trực tiếp chính sách $\pi_\theta(a|s)$ với cơ chế cập nhật bị chặn (\textit{mục tiêu cắt ngưỡng}) để tránh bước cập nhật quá lớn. So với DQN, PPO thường ổn định hơn trong bài toán có tín hiệu phần thưởng nhiễu và động học môi trường biến động theo thời gian.
+
+\noindent Với bài toán có tính phi dừng cao, tín hiệu phần thưởng dao động mạnh hoặc cần chính sách can thiệp mượt và bền vững hơn trong vận hành, PPO là lựa chọn phù hợp nhờ mức ổn định tốt và độ nhạy tham số thấp hơn.
+
+\noindent\textbf{Mục tiêu tối ưu của PPO.}
+
+\noindent PPO sử dụng tỉ lệ xác suất giữa chính sách mới và chính sách cũ:
+\[
+r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}
+\]
+và tối ưu hàm mục tiêu cắt ngưỡng:
+\[
+\mathcal{L}^{clip}(\theta)=
+\mathbb{E}_t
+\left[
+\min\left(
+r_t(\theta)\hat{A}_t,\,
+clip(r_t(\theta),1-\epsilon,1+\epsilon)\hat{A}_t
+\right)
+\right]
+\]
+trong đó $\hat{A}_t$ là ước lượng lợi thế và $\epsilon$ là ngưỡng clip.
+
+\noindent Trong thực nghiệm, hàm mất mát tổng hợp thường gồm ba thành phần:
+\[
+\mathcal{L}_{PPO}
+=
+\mathcal{L}^{clip}
+- c_1 \mathcal{L}^{VF}
++ c_2 \mathcal{H}(\pi_\theta)
+\]
+với $\mathcal{L}^{VF}$ là mất mát giá trị, $\mathcal{H}$ là thưởng entropy nhằm duy trì khám phá.
+
+\noindent\textbf{Quy trình huấn luyện tổng quát.}
+\begin{itemize}
+    \item Thu thập chuỗi tương tác theo chính sách hiện tại trong một khoảng \textit{horizon}.
+    \item Tính tổng phần thưởng và độ lợi thế (ví dụ theo GAE) từ dữ liệu chuỗi tương tác.
+    \item Chia mini-batch và tối ưu nhiều epoch trên cùng tập dữ liệu chuỗi tương tác.
+    \item Cập nhật chính sách mới, lặp lại cho đến khi hội tụ hoặc đạt ngân sách huấn luyện.
+\end{itemize}
+
+\subsection{Thiết kế phương pháp cho kịch bản Pod Failure}
+
+\noindent Trong kịch bản Pod Failure, PPO được thiết kế trên \textbf{MDP\_PPO\_POD\_KILL} với cùng không gian trạng thái, hành động và hàm thưởng đã định nghĩa ở Chương 3. Mục tiêu là học chính sách phục hồi có khả năng phản ứng nhanh khi lỗi bùng phát nhưng vẫn tránh hành vi can thiệp quá mức gây mất ổn định cụm.
+
+\noindent\textbf{Thiết kế chính sách và bộ ước lượng giá trị.}
+
+\noindent Tác nhân gồm hai nhánh:
+\begin{itemize}
+    \item \textbf{Actor}: xuất phân phối xác suất trên 4 hành động \texttt{idle}, \texttt{restart\_pod}, \texttt{scale\_up}, \texttt{scale\_down}.
+    \item \textbf{Critic}: ước lượng giá trị trạng thái $V_\phi(s)$ để tính advantage cho cập nhật policy.
+\end{itemize}
+
+\noindent\textbf{Chiến lược cập nhật trong Pod Failure.}
+
+\noindent Với dữ liệu rollout từ kịch bản \texttt{chaos-pod-kill-product}, PPO được huấn luyện theo vòng lặp:
+\begin{itemize}
+    \item Thu thập trajectory qua các pha \textit{baseline}, \textit{chaos}, \textit{recovery}.
+    \item Tính độ lợi thế và chuẩn hóa độ lợi thế để giảm phương sai gradient.
+    \item Cập nhật nhiều epoch với cơ chế cắt ngưỡng để hạn chế dịch chuyển chính sách đột ngột.
+    \item Theo dõi reward trung bình, tỷ lệ vi phạm SLA và tần suất hành động để chọn checkpoint tốt nhất.
+\end{itemize}
+
+\noindent\textbf{Ràng buộc vận hành DevOps khi suy luận online.}
+
+\noindent Khi triển khai policy PPO vào runtime, lớp điều khiển cần giữ các guardrail tương tự DQN:
+\begin{itemize}
+    \item Cooldown giữa hai lần can thiệp liên tiếp.
+    \item Giới hạn \textit{min/max replicas} khi scale.
+    \item Chế độ \textit{chạy thử} để đánh giá chính sách trước khi bật can thiệp thật.
+    \item Ghi nhật ký hành động, trạng thái và phần thưởng để phục vụ kiểm toán và tinh chỉnh.
+\end{itemize}
+
+\noindent Thiết kế trên giúp PPO khai thác tốt thông tin theo chuỗi thời gian trong giai đoạn sự cố, đồng thời duy trì tính an toàn khi chuyển từ huấn luyện ngoại tuyến sang vận hành thực tế trên Kubernetes.

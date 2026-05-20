@@ -1,6 +1,6 @@
-\section{Bài toán self-healing trong Kubernetes}
+\section{Bài toán tự phục hồi trong Kubernetes}
 
-\noindent Trong môi trường microservices, Kubernetes cung cấp cơ chế \textit{self-healing} để tự động phục hồi dịch vụ khi xảy ra sự cố Pod hoặc Node. Tuy nhiên, cơ chế mặc định chủ yếu dựa trên các quy tắc cố định và các controller truyền thống, do đó thường chưa tối ưu trong các tình huống tải động và lỗi kéo dài. Bài toán đặt ra là lựa chọn hành động phục hồi phù hợp theo từng trạng thái hệ thống, nhằm giảm lỗi dịch vụ, giảm độ trễ và rút ngắn thời gian phục hồi.
+\noindent Trong môi trường microservices, Kubernetes cung cấp cơ chế \textit{tự phục hồi} để tự động phục hồi dịch vụ khi xảy ra sự cố Pod hoặc Node. Tuy nhiên, cơ chế mặc định chủ yếu dựa trên các quy tắc cố định và các controller truyền thống, do đó thường chưa tối ưu trong các tình huống tải động và lỗi kéo dài. Bài toán đặt ra là lựa chọn hành động phục hồi phù hợp theo từng trạng thái hệ thống, nhằm giảm lỗi dịch vụ, giảm độ trễ và rút ngắn thời gian phục hồi.
 
 \noindent Trong phạm vi đề tài, bài toán được mô hình hóa dưới dạng tiến trình quyết định Markov (Markov Decision Process - MDP), trong đó tác nhân học tăng cường quan sát trạng thái hệ thống và quyết định hành động phục hồi theo thời gian.
 
@@ -15,7 +15,7 @@
     \item $\gamma$: hệ số chiết khấu.
 \end{itemize}
 
-\noindent Phạm vi hiện tại gồm hai fault scenario độc lập, do đó sử dụng hai MDP tách biệt:
+\noindent Phạm vi hiện tại gồm hai kịch bản lỗi độc lập, do đó sử dụng hai MDP tách biệt:
 \begin{itemize}
     \item \textbf{MDP\_PPO\_POD\_KILL}: cho kịch bản \texttt{chaos-pod-kill-product}.
     \item \textbf{MDP\_PPO\_NETWORK\_DELAY}: cho kịch bản \texttt{chaos-network-delay-api-gateway}.
@@ -24,18 +24,18 @@
 \subsection{Kịch bản Pod Failure}
 
 \noindent Kịch bản Pod Failure được mô hình hóa bằng \textbf{MDP\_PPO\_POD\_KILL}.
-\noindent\textbf{Trạng thái (State).}
+\noindent\textbf{Trạng thái.}
 
 \noindent Với kịch bản \texttt{pod\_kill}, trạng thái được xây dựng từ \texttt{combined-report.csv}. 
 
-\noindent \textbf{Core state và Derived state (dùng trực tiếp từ CSV hiện có).}
+\noindent \textbf{Trạng thái lõi và trạng thái suy diễn (dùng trực tiếp từ CSV hiện có).}
 \begin{center}
-\captionof{table}{Các feature Core state và Derived state cho kịch bản Pod Failure}
+\captionof{table}{Các đặc trưng trạng thái lõi và trạng thái suy diễn cho kịch bản Pod Failure}
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|>{\hspace{2pt}\raggedright\arraybackslash}p{0.25\textwidth}|>{\hspace{2pt}\raggedright\arraybackslash}p{0.46\textwidth}|>{\hspace{2pt}\raggedright\arraybackslash}p{0.28\textwidth}|}
 \hline
-\textbf{Feature} & \textbf{Giá trị (công thức tính)} & \textbf{Cơ sở lựa chọn} \\ \hline
+\textbf{Đặc trưng} & \textbf{Giá trị (công thức tính)} & \textbf{Cơ sở lựa chọn} \\ \hline
 \textit{http\_rps\_norm} & \textit{clip(http\_rps / 1000, 0, 1)} & Chuẩn hóa throughput về cùng thang đo với các feature khác để PPO học ổn định. \\ \hline
 \textit{err\_5xx} & \textit{http\_req\_failed\_rate} & Đại diện trực tiếp cho mức vi phạm tính sẵn sàng dịch vụ. \\ \hline
 \textit{p95\_norm} & \makecell[l]{\textit{clip(http\_req\_duration\_p95\_ms /}\\ \textit{2000, 0, 1)}} & Bắt tín hiệu suy giảm tail latency sớm hơn p99. \\ \hline
@@ -48,14 +48,14 @@
 \end{tabular}
 \end{center}
 
-\noindent \textbf{Extended state (tùy chọn, khi có Prometheus).}
+\noindent \textbf{Trạng thái mở rộng (tùy chọn, khi có Prometheus).}
 \begin{center}
-\captionof{table}{Các feature Extended state cho kịch bản Pod Failure}
+\captionof{table}{Các đặc trưng trạng thái mở rộng cho kịch bản Pod Failure}
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|>{\hspace{2pt}\raggedright\arraybackslash}p{0.25\textwidth}|>{\hspace{2pt}\raggedright\arraybackslash}p{0.46\textwidth}|>{\hspace{2pt}\raggedright\arraybackslash}p{0.28\textwidth}|}
 \hline
-\textbf{Feature} & \textbf{Giá trị (công thức tính)} & \textbf{Cơ sở lựa chọn} \\ \hline
+\textbf{Đặc trưng} & \textbf{Giá trị (công thức tính)} & \textbf{Cơ sở lựa chọn} \\ \hline
 \textit{node\_cpu\_util\_norm} & CPU node hoặc cluster-level normalized & Theo dõi áp lực compute nền để tránh action làm quá tải hạ tầng. \\ \hline
 \textit{node\_mem\_util\_norm} & RAM node hoặc cluster-level normalized & Bắt memory pressure, hữu ích khi scale/restart liên tục. \\ \hline
 \makecell[l]{\textit{node\_cpu\_util\_norm}\\ \textit{map nhanh}} & \makecell[l]{\textit{1 - avg(rate(}\\ \textit{node\_cpu\_seconds\_total\{}\\ \textit{mode="idle"\}[1m]}\\ \textit{))}} & Công thức đơn giản, phổ biến, tương thích hầu hết stack Prometheus node exporter. \\ \hline
@@ -63,7 +63,7 @@
 \end{tabular}
 \end{center}
 
-\noindent\textbf{Hành động (Action).}
+\noindent\textbf{Hành động.}
 
 \noindent Trong scope hiện tại, tập hành động an toàn gồm 4 hành động rời rạc:
 \begin{itemize}
@@ -74,7 +74,7 @@
 \end{itemize}
 
 
-\noindent\textbf{Hàm thưởng (Reward).}
+\noindent\textbf{Hàm thưởng.}
 
 \noindent Hàm thưởng cho \texttt{MDP\_PPO\_POD\_KILL} được thiết kế như sau:
 \[
@@ -102,20 +102,20 @@ health = 0.45(1-err\_{5xx}) + 0.35(1-p99\_norm) + 0.20 \cdot http\_rps\_norm
     \item \textbf{SLA violation penalty}: $-10$ nếu $(err\_{5xx}>0.1 \lor p99\_norm>0.9)$ kéo dài $\ge 3$ bước
 \end{itemize}
 
-\noindent\textbf{Điều kiện kết thúc episode.}
+\noindent\textbf{Điều kiện kết thúc một tập (episode).}
 
-\noindent Episode kết thúc khi một trong ba điều kiện xảy ra:
+\noindent Tập huấn luyện kết thúc khi một trong ba điều kiện xảy ra:
 \begin{itemize}
-    \item \textbf{Success}: hệ ổn định liên tục $k$ bước.
-    \item \textbf{Failure}: trạng thái vi phạm SLA kéo dài theo ngưỡng định nghĩa.
-    \item \textbf{Timeout}: đạt $max\_steps$.
+    \item \textbf{Thành công}: hệ ổn định liên tục $k$ bước.
+    \item \textbf{Thất bại}: trạng thái vi phạm SLA kéo dài theo ngưỡng định nghĩa.
+    \item \textbf{Hết thời gian}: đạt $max\_steps$.
 \end{itemize}
 
 \newpage
 \noindent\textbf{Phân tích thiết kế hàm thưởng.}
 
 \begin{center}
-\captionof{table}{Thành phần chính trong hàm reward}
+\captionof{table}{Thành phần chính trong hàm thưởng}
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|>{\hspace{2pt}\raggedright\arraybackslash}p{0.3\textwidth}|>{\hspace{2pt}\raggedright\arraybackslash}p{0.15\textwidth}|>{\hspace{2pt}\raggedright\arraybackslash}p{0.545\textwidth}|}
@@ -147,12 +147,12 @@ health = 0.45(1-err\_{5xx}) + 0.35(1-p99\_norm) + 0.20 \cdot http\_rps\_norm
 
 
 
-\noindent\textbf{Transition model.}
+\noindent\textbf{Mô hình chuyển trạng thái.}
 
-\noindent Dynamics của môi trường gồm:
+\noindent Động lực học của môi trường gồm:
 \begin{itemize}
-    \item \textbf{Ngoại sinh}: lấy từ chuỗi thời gian artifact \texttt{combined-report.csv}.
-    \item \textbf{Nội sinh}: do action của agent tác động lên $err/p99/rps$, sau đó blend về quỹ đạo artifact để tránh overfit.
+    \item \textbf{Ngoại sinh}: lấy từ chuỗi thời gian của tệp kết quả \texttt{combined-report.csv}.
+    \item \textbf{Nội sinh}: do hành động của tác nhân tác động lên $err/p99/rps$, sau đó blend về quỹ đạo artifact để tránh overfit.
 \end{itemize}
 
 \subsection{Kịch bản độ trễ mạng tăng cao}
@@ -170,12 +170,12 @@ health = 0.45(1-err\_{5xx}) + 0.35(1-p99\_norm) + 0.20 \cdot http\_rps\_norm
 \begin{itemize}
     \item Train PPO mô phỏng: \texttt{src/ppo/train.py}
     \item Train PPO từ artifact: \texttt{src/ppo/train\_artifacts.py}
-    \item Env theo scenario:
+    \item Môi trường theo kịch bản:
     \begin{itemize}
         \item \texttt{src/ppo/policies/pod\_failure/env.py}
         \item \texttt{src/ppo/policies/network\_delay/env.py}
     \end{itemize}
-    \item Runtime inference:
+    \item Suy luận thời gian chạy:
     \begin{itemize}
         \item \texttt{src/ppo/infer.py}
         \item \texttt{src/common/runtime/k8s\_runtime.py}

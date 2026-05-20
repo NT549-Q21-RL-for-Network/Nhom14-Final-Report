@@ -41,3 +41,5 @@ Thumbs.db
 
 # Thesis build artifact
 /main.pdf
+
+*.bbl-SAVE-ERROR
