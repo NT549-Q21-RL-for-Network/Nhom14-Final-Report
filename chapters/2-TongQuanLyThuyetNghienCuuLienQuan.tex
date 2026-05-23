@@ -23,9 +23,9 @@ Một bài toán RL thường bao gồm các thành phần sau:
 
 Bài toán RL thường được mô hình hóa dưới dạng Markov Decision Process (MDP):
 
-\begin{equation}
+\[
 MDP = (S, A, P, R, \gamma)
-\end{equation}
+\]
 
 Trong đó:
 
@@ -36,6 +36,103 @@ Trong đó:
     \item $R$: hàm reward.
     \item $\gamma$: hệ số discount factor.
 \end{itemize}
+
+
+\section{Thuật toán Deep Q-Network (DQN)}
+
+Deep Q-Network (DQN) là thuật toán thuộc nhóm Deep Reinforcement Learning, được phát triển nhằm cải thiện Q-Learning trong các môi trường có không gian trạng thái lớn. Thay vì sử dụng bảng Q-Table, DQN sử dụng mạng neural sâu để xấp xỉ hàm giá trị hành động $Q(s,a)$.
+
+Trong Reinforcement Learning, agent tương tác với môi trường thông qua trạng thái $s$, thực hiện hành động $a$, nhận phần thưởng $r$ và chuyển sang trạng thái tiếp theo $s'$. Mục tiêu của agent là tối đa hóa tổng phần thưởng tích lũy:
+
+\[
+R_t = \sum_{k=0}^{\infty} \gamma^k r_{t+k+1}
+\]
+
+Trong đó:
+\begin{itemize}
+    \item $R_t$: tổng phần thưởng tích lũy tại thời điểm $t$
+    \item $\gamma$: hệ số discount factor $(0 < \gamma < 1)$
+    \item $r_{t+k+1}$: phần thưởng trong tương lai
+\end{itemize}
+
+DQN sử dụng mạng neural để xấp xỉ hàm giá trị Q:
+
+\[
+Q(s,a;\theta)
+\]
+
+Trong đó:
+\begin{itemize}
+    \item $s$: trạng thái hiện tại
+    \item $a$: hành động
+    \item $\theta$: trọng số của mạng neural
+\end{itemize}
+
+Giá trị Q được cập nhật dựa trên phương trình Bellman:
+
+\[
+Q(s,a)=r+\gamma \max_{a'}Q(s',a')
+\]
+
+Trong đó:
+\begin{itemize}
+    \item $r$: phần thưởng nhận được
+    \item $s'$: trạng thái tiếp theo
+    \item $\gamma$: hệ số discount factor
+    \item $\max_{a'}Q(s',a')$: giá trị Q lớn nhất tại trạng thái kế tiếp
+\end{itemize}
+
+Trong quá trình huấn luyện, DQN tối ưu giá trị dự đoán thông qua target value:
+
+\[
+y = r+\gamma \max_{a'}Q(s',a';\theta^{-})
+\]
+
+Trong đó:
+\begin{itemize}
+    \item $y$: giá trị mục tiêu
+    \item $\theta^{-}$: trọng số của Target Network
+\end{itemize}
+
+Hàm mất mát (Loss Function) của DQN được xác định như sau:
+
+\[
+L(\theta)=\mathbb{E}\left[(y-Q(s,a;\theta))^2\right]
+\]
+
+Trong đó:
+\begin{itemize}
+    \item $Q(s,a;\theta)$: giá trị Q dự đoán từ mạng neural
+    \item $y$: giá trị mục tiêu
+\end{itemize}
+
+Gradient được sử dụng để cập nhật trọng số mạng neural:
+
+\[
+\nabla_{\theta}L(\theta)=
+\mathbb{E}\left[(y-Q(s,a;\theta))
+\nabla_{\theta}Q(s,a;\theta)\right]
+\]
+
+Trong đó:
+\begin{itemize}
+    \item $y$: giá trị mục tiêu (target value)
+    \item $Q(s,a;\theta)$: giá trị Q được dự đoán bởi mạng neural
+    \item $\nabla_{\theta}Q(s,a;\theta)$: đạo hàm của hàm Q theo trọng số mạng neural
+    \item $\theta$: tập trọng số của mạng neural
+\end{itemize}
+
+Để cân bằng giữa exploration và exploitation, DQN sử dụng chiến lược $\varepsilon$-greedy:
+
+\[
+a=
+\begin{cases}
+\text{random action}, & \text{with probability } \varepsilon \\
+\arg\max_a Q(s,a), & \text{with probability } 1-\varepsilon
+\end{cases}
+\]
+
+
 
 \section{Proximal Policy Optimization (PPO)}
 
@@ -126,9 +223,9 @@ PPO thuộc kiến trúc Actor--Critic, bao gồm hai thành phần chính là A
 Trong Reinforcement Learning, policy là một phân phối xác suất ánh xạ từ trạng thái sang hành động:
 
 
-\begin{equation}
+\[
 \pi(a|s)
-\end{equation}
+\]
 
 Trong đó:
 \begin{itemize}
@@ -141,9 +238,9 @@ Sau mỗi lần tương tác với môi trường, Critic ước lượng giá t
 
 Hàm mục tiêu cơ bản của Policy Gradient được định nghĩa:
 
-\begin{equation}
+\[
 J(\theta) = \mathbb{E}_{\pi_\theta}[R_t]
-\end{equation}
+\]
 
 Trong đó:
 \begin{itemize}
@@ -154,16 +251,16 @@ Trong đó:
 
 Gradient của hàm mục tiêu:
 
-\begin{equation}
+\[
 \nabla_\theta J(\theta)
 = \mathbb{E}_{\pi_\theta}\left[\nabla_\theta \log \pi_\theta(a_t|s_t)\, R_t \right]
-\end{equation}
+\]
 
 Tuy nhiên, Policy Gradient truyền thống có phương sai cao và khó ổn định. Do đó, PPO sử dụng Advantage Function:
 
-\begin{equation}
+\[
 A_t = Q(s_t, a_t) - V(s_t)
-\end{equation}
+\]
 
 Trong đó:
 \begin{itemize}
@@ -177,16 +274,16 @@ Ngược lại nếu $A_t < 0$, hành động kém hơn kỳ vọng.
 
 PPO định nghĩa probability ratio giữa policy mới và policy cũ:
 
-\begin{equation}
+\[
 r_t(\theta) =
 \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}
-\end{equation}
+\]
 
 Tỷ lệ này phản ánh mức độ thay đổi của policy giữa hai lần cập nhật.
 
 Hàm objective chính của PPO (clipped surrogate objective):
 
-\begin{equation}
+\[
 L^{CLIP}(\theta)
 =
 \mathbb{E}_t \left[
@@ -195,7 +292,7 @@ r_t(\theta) A_t,\;
 \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t
 \Big)
 \right]
-\end{equation}
+\]
 
 Trong đó:
 \begin{itemize}
